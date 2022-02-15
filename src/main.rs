@@ -1,7 +1,8 @@
 use gstreamer as gst;
 use gstreamer_pbutils as gst_pbutils;
-use gst_pbutils::prelude::*;
+use gstreamer_editing_services as ges;
 
+use gst_pbutils::prelude::*;
 use gst_pbutils::DiscovererInfo;
 use gst_pbutils::DiscovererStreamInfo;
 
@@ -10,80 +11,175 @@ use derive_more::{Display, Error};
 
 use std::env;
 
-#[derive(Debug, Display, Error)]
-#[display(fmt = "Discoverer error {}", _0)]
-struct DiscovererError(#[error(not(source))] &'static str);
+// This example demonstrates how to use the gstreamer editing services.
+// This is gstreamer's framework to implement non-linear editing.
+// It provides a timeline API that internally manages a dynamically changing
+// pipeline. (e.g.: alternating video streams in second 1, 2, and 3)
+// Timeline:
+//         _________________________________________________
+//         |     00:01    |     00:02    |     00:03    |
+//         =================================================
+// Layer0: ||  ###CLIP####||             ||   ###CLIP###||
+//         ||  ####00#####||             ||   ####01####||
+//         =================================================
+// Layer1: ||             ###CLIP####    ||             ||
+//         ||             ####00#####    ||             ||
+//         =================================================
 
-fn print_tags(info: &DiscovererInfo) {
-    println!("Tags:");
+// - Assets are the base of most components in GES. One asset essentially represents
+//    one resource (e.g. a file). Different files and filetypes can contain different
+//    types of things. Thus - you can extract different high-level types from an
+//    asset. If you created an asset from a video file, you could for example "extract"
+//    a GESClip from it. Same goes for audio files.
+// - There even is the GESProject subclass of GESAsset, which can be used to load a whole
+//    previously saved project. And since GESProject essentially is a GESAsset itself, you
+//    can then extract the stored components (like the timeline e.g.) from it.
+// - Clips are the high-level types (above assets), managing multimedia elements (such as
+//    videos or audio clips). Within the timeline, they are arranged in layers.
+//    Those layers essentially behave like in common photo editing software: They specify
+//    the order in which they are composited, and can therefore overlay each other.
+//    Clips are essentially wrappers around the underlying GStreamer elements needed
+//    to work with them. They also provide high-level APIs to add effects into the
+//    clip's internal pipeline.
+//    Multiple clips can also be grouped together (even across layers!) to one, making it
+//    possible to work with all of them as if they were one.
+// - Like noted above, Layers specify the order in which the different layers are composited.
+//    This is specified by their priority. Layers with higher priority (lower number) trump
+//    those with lowers (higher number). Thus, Layers with higher priority are "in the front".
+// - The timeline is the enclosing element, grouping all layers and providing a timeframe.
 
-    let tags = info.tags();
-    match tags {
-        Some(taglist) => {
-            println!("  {}", taglist); // FIXME use an iterator
-        }
-        None => {
-            println!("  no tags");
-        }
-    }
+use gst::prelude::*;
+
+use ges::prelude::*;
+
+use std::env;
+
+fn configure_pipeline(pipeline: &ges::Pipeline, output_name: &str) {
+    // Every audiostream piped into the encodebin should be encoded using opus.
+    let audio_profile =
+        gst_pbutils::EncodingAudioProfile::builder(&gst::Caps::builder("audio/x-opus").build())
+            .build();
+
+    // Every videostream piped into the encodebin should be encoded using vp8.
+    let video_profile =
+        gst_pbutils::EncodingVideoProfile::builder(&gst::Caps::builder("video/x-vp8").build())
+            .build();
+
+    // All streams are then finally combined into a webm container.
+    let container_profile =
+        gst_pbutils::EncodingContainerProfile::builder(&gst::Caps::builder("video/webm").build())
+            .name("container")
+            .add_profile(&video_profile)
+            .add_profile(&audio_profile)
+            .build();
+
+    // Apply the EncodingProfile to the pipeline, and set it to render mode
+    let output_uri = format!("{}.webm", output_name);
+    pipeline
+        .set_render_settings(&output_uri, &container_profile)
+        .expect("Failed to set render settings");
+    pipeline
+        .set_mode(ges::PipelineFlags::RENDER)
+        .expect("Failed to set pipeline to render mode");
 }
 
-fn print_stream_info(stream: &DiscovererStreamInfo) {
-    println!("Stream: ");
-    if let Some(id) = stream.stream_id() {
-        println!("  Stream id: {}", id);
-    }
-    let caps_str = match stream.caps() {
-        Some(caps) => caps.to_string(),
-        None => String::from("--"),
-    };
-    println!("  Format: {}", caps_str);
-}
+fn main_loop(uri: &str, output: Option<&String>) -> Result<(), glib::BoolError> {
+    ges::init()?;
 
-fn print_discoverer_info(info: &DiscovererInfo) -> Result<(), Error> {
-    let uri = info
-        .uri()
-        .ok_or(DiscovererError("URI should not be null"))?;
-    println!("URI: {}", uri);
-    println!("Duration: {}", info.duration().display());
-    print_tags(info);
-    print_stream_info(
-        &info
-            .stream_info()
-            .ok_or(DiscovererError("Error while obtaining stream info"))?,
+    // Begin by creating a timeline with audio and video tracks
+    let timeline = ges::Timeline::new_audio_video();
+    // Create a new layer that will contain our timed clips.
+    let layer = timeline.append_layer();
+    let pipeline = ges::Pipeline::new();
+    pipeline.set_timeline(&timeline)?;
+
+    // If requested, configure the pipeline so it renders to a file.
+    if let Some(output_name) = output {
+        configure_pipeline(&pipeline, output_name);
+    }
+
+    // Load a clip from the given uri and add it to the layer.
+    let clip = ges::UriClip::new(uri).expect("Failed to create clip");
+    layer.add_clip(&clip)?;
+
+    // Add an effect to the clip's video stream.
+    let effect = ges::Effect::new("agingtv").expect("Failed to create effect");
+    clip.add(&effect).unwrap();
+
+    println!(
+        "Agingtv scratch-lines: {}",
+        clip.child_property("scratch-lines")
+            .unwrap()
+            .serialize()
+            .unwrap()
     );
 
-    let children = info.stream_list();
-    println!("Children streams:");
-    for child in children {
-        print_stream_info(&child);
+    // Retrieve the asset that was automatically used behind the scenes, to
+    // extract the clip from.
+    let asset = clip.asset().unwrap();
+    let duration = asset
+        .downcast::<ges::UriClipAsset>()
+        .unwrap()
+        .duration()
+        .expect("unknown duration");
+    println!(
+        "Clip duration: {} - playing file from {} for {}",
+        duration,
+        duration / 2,
+        duration / 4,
+    );
+
+    // The inpoint specifies where in the clip we start, the duration specifies
+    // how much we play from that point onwards. Setting the inpoint to something else
+    // than 0, or the duration something smaller than the clip's actual duration will
+    // cut the clip.
+    clip.set_inpoint(duration / 2);
+    clip.set_duration(duration / 4);
+
+    pipeline
+        .set_state(gst::State::Playing)
+        .expect("Unable to set the pipeline to the `Playing` state");
+
+    let bus = pipeline.bus().unwrap();
+    for msg in bus.iter_timed(gst::ClockTime::NONE) {
+        use gst::MessageView;
+
+        match msg.view() {
+            MessageView::Eos(..) => break,
+            MessageView::Error(err) => {
+                println!(
+                    "Error from {:?}: {} ({:?})",
+                    err.src().map(|s| s.path_string()),
+                    err.error(),
+                    err.debug()
+                );
+                break;
+            }
+            _ => (),
+        }
     }
 
+    pipeline
+        .set_state(gst::State::Null)
+        .expect("Unable to set the pipeline to the `Null` state");
+
     Ok(())
 }
 
-fn run_discoverer() -> Result<(), Error> {
-    gst::init()?;
-
-    let args: Vec<_> = env::args().collect();
-    let uri: &str = if args.len() == 2 {
-        args[1].as_ref()
-    } else {
-        println!("Usage: discoverer uri");
-        std::process::exit(-1)
-    };
-
-    let timeout: gst::ClockTime = gst::ClockTime::from_seconds(15);
-    let discoverer = gst_pbutils::Discoverer::new(timeout)?;
-    let info = discoverer.discover_uri(uri)?;
-    print_discoverer_info(&info)?;
-    Ok(())
-}
-
+#[allow(unused_variables)]
 fn example_main() {
-    match run_discoverer() {
-        Ok(_) => (),
-        Err(e) => eprintln!("Error: {}", e),
+    let args: Vec<_> = env::args().collect();
+    if args.len() < 2 || args.len() > 3 {
+        println!("Usage: ges input [output]");
+        std::process::exit(-1)
+    }
+
+    let input_uri: &str = args[1].as_ref();
+    let output = args.get(2);
+
+    match main_loop(input_uri, output) {
+        Ok(r) => r,
+        Err(e) => eprintln!("Error! {}", e),
     }
 }
 

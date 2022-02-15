@@ -81,6 +81,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-io"
+version = "0.3.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc4045962a5a5e935ee2fdedaa4e08284547402885ab326734432bed5d12966b"
+
+[[package]]
 name = "futures-sink"
 version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -103,6 +109,36 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "gio"
+version = "0.15.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59105fa464928adf56b159c8d980cc11fbfbe414befb904caac5163d383049bf"
+dependencies = [
+ "bitflags",
+ "futures-channel",
+ "futures-core",
+ "futures-io",
+ "gio-sys",
+ "glib",
+ "libc",
+ "once_cell",
+ "thiserror",
+]
+
+[[package]]
+name = "gio-sys"
+version = "0.15.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f0bc4cfc9ebcdd05cc5057bc51b99c32f8f9bf246274f6a556ffd27279f8fe3"
+dependencies = [
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "system-deps",
+ "winapi",
 ]
 
 [[package]]
@@ -251,6 +287,37 @@ checksum = "a083493c3c340e71fa7c66eebda016e9fafc03eb1b4804cf9b2bad61994b078e"
 dependencies = [
  "glib-sys",
  "gobject-sys",
+ "gstreamer-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "gstreamer-editing-services"
+version = "0.18.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "709b56b2f990db0965df26c740b84105670b1820e8f4722b5409396f157a1714"
+dependencies = [
+ "bitflags",
+ "gio",
+ "glib",
+ "gstreamer",
+ "gstreamer-base",
+ "gstreamer-editing-services-sys",
+ "gstreamer-pbutils",
+ "libc",
+]
+
+[[package]]
+name = "gstreamer-editing-services-sys"
+version = "0.18.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c6fc9a9edec9a4c229e472f309a93c63aaced1dd32010772b62d116388cc514"
+dependencies = [
+ "gio-sys",
+ "glib-sys",
+ "gobject-sys",
+ "gstreamer-pbutils-sys",
  "gstreamer-sys",
  "libc",
  "system-deps",
@@ -417,6 +484,7 @@ dependencies = [
  "derive_more",
  "gstreamer",
  "gstreamer-app",
+ "gstreamer-editing-services",
  "gstreamer-pbutils",
  "gstreamer-video",
 ]
@@ -588,3 +656,25 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "winapi"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419"
+dependencies = [
+ "winapi-i686-pc-windows-gnu",
+ "winapi-x86_64-pc-windows-gnu",
+]
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
+
+[[package]]
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
