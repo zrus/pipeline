@@ -1,3 +1,4 @@
+use gstreamer as gst;
 use gstreamer_pbutils as gst_pbutils;
 use gst_pbutils::prelude::*;
 
