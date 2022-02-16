@@ -48,8 +48,8 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
             println!("Already linked!");
             return;
         }
-        if !src_pad.link(sink_pad) {
-            println!("Failed to link elements");
+        if let Err(e) = src_pad.link(sink_pad) {
+            println!("Failed to link elements: {}", e);
             return;
         }
     });
