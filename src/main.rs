@@ -40,8 +40,12 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
 
     let elements = &[&src, &sink];
     pipeline.add_many(elements)?;
-    // gst::Element::link_many(elements)?;
-    src.link(&sink).map_err(|e| println!("{:?}", e));
+    gst::Element::link_many(elements)?;
+
+    src.connect_pad_added(|_, src_pad| {
+        let sink_pad = &sink.static_pad("sink").expect("Could not get sink pad");
+        src_pad.link(sink_pad)?;
+    });
 
     let appsink = sink
         .dynamic_cast::<gst_app::AppSink>()
