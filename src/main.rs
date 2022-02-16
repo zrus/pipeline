@@ -44,7 +44,7 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
 
     let sink_clone = sink.clone();
 
-    src.connect_pad_added(|_, src_pad| {
+    src.connect_pad_added(move |_, src_pad| {
         let sink_pad = &sink_clone.static_pad("sink").expect("Could not get sink pad");
         if sink_pad.is_linked() {
             println!("Already linked!");
