@@ -40,9 +40,7 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
 
     let elements = &[&src, &sink];
     pipeline.add_many(elements)?;
-    gst::Element::link_many(elements).map_err(|e| {
-        println!("{:?}", e);
-    });
+    gst::Element::link_many(elements)?;
 
     let appsink = sink
         .dynamic_cast::<gst_app::AppSink>()
