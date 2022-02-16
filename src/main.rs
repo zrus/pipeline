@@ -44,7 +44,14 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
 
     src.connect_pad_added(|_, src_pad| {
         let sink_pad = &sink.static_pad("sink").expect("Could not get sink pad");
-        src_pad.link(sink_pad)?;
+        if sink_pad.is_linked() {
+            println!("Already linked!");
+            return;
+        }
+        if !src_pad.link(sink_pad) {
+            println!("Failed to link elements");
+            return;
+        }
     });
 
     let appsink = sink
