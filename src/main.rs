@@ -98,7 +98,7 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
                 // We know what format the data in the memory region has, since we requested
                 // it by setting the appsink's caps. So what we do here is interpret the
                 // memory region we mapped as an array of signed 16 bit integers.
-                let samples = map.as_slice_of::<i16>().map_err(|_| {
+                let samples = map.as_slice_of::<u8>().map_err(|_| {
                     element_error!(
                         appsink,
                         gst::ResourceError::Failed,
@@ -113,7 +113,7 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
                 let sum: f64 = samples
                     .iter()
                     .map(|sample| {
-                        let f = f64::from(*sample) / f64::from(i16::MAX);
+                        let f = f64::from(*sample) / f64::from(u8::MAX);
                         f * f
                     })
                     .sum();
