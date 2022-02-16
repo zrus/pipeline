@@ -42,8 +42,10 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
     pipeline.add_many(elements)?;
     gst::Element::link_many(elements)?;
 
+    let sink_clone = sink.clone();
+
     src.connect_pad_added(|_, src_pad| {
-        let sink_pad = &sink.static_pad("sink").expect("Could not get sink pad");
+        let sink_pad = &sink_clone.static_pad("sink").expect("Could not get sink pad");
         if sink_pad.is_linked() {
             println!("Already linked!");
             return;
