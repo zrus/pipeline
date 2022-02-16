@@ -40,7 +40,7 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
 
     let elements = &[&src, &sink];
     pipeline.add_many(elements)?;
-    src.link(&sink)?;
+    gst::Element::link_many(elements);
 
     let sink_clone = sink.clone();
 
