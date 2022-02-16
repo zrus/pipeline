@@ -38,8 +38,9 @@ fn create_pipeline() -> Result<gst::Pipeline, Error> {
     src.set_property("location", URI);
     let sink = gst::ElementFactory::make("appsink", None).map_err(|_| MissingElement("appsink"))?;
 
-    pipeline.add_many(&[&src, &sink])?;
-    src.link(&sink)?;
+    let elements = &[&src, &sink];
+    pipeline.add_many(elements)?;
+    gst::Element::link_many(elements)?;
 
     let appsink = sink
         .dynamic_cast::<gst_app::AppSink>()
